@@ -38,14 +38,14 @@
               <tbody>
                 <tr *ngFor="let movie of movies; let i = index">
                   <td>
-                    {{ movie.title }}
+                    {{ movie.name }}
                   </td>
-                  <td>{{ movie.director }}</td>
+                  <td>{{ getDirectorName(movie.fkDirector) }}</td>
                   <td>
-                   {{ movie.year }}
+                   {{ movie.releaseYear }}
                   </td>
                   <td>
-                   {{ movie.genre }}
+                   {{ movie.gender }}
                   </td>
                   <td>{{ movie.duration }} min</td>
                   <td class="text-center">
@@ -100,7 +100,7 @@
                 Título *
               </label>
               <input type="text" class="form-control" id="title" name="title" 
-                     [(ngModel)]="newMovie.title" required 
+                     [(ngModel)]="newMovie.name" required 
                      placeholder="Ingresa el título de la película"
                      #title="ngModel">
               <div *ngIf="title.invalid && title.touched" class="text-danger small mt-1">
@@ -112,8 +112,8 @@
                 <i class="fas fa-calendar me-1"></i>
                 Año *
               </label>
-              <input type="number" class="form-control" id="year" name="year" 
-                     [(ngModel)]="newMovie.year" required min="1800" max="2030"
+              <input type="date" class="form-control" id="year" name="year" 
+                     [(ngModel)]="newMovie.releaseYear" required min="1800" max="2030"
                      placeholder="2024"
                      #year="ngModel">
               <div *ngIf="year.invalid && year.touched" class="text-danger small mt-1">
@@ -128,10 +128,14 @@
                 <i class="fas fa-user-tie me-1"></i>
                 Director *
               </label>
-              <input type="text" class="form-control" id="director" name="director" 
-                     [(ngModel)]="newMovie.director" required 
-                     placeholder="Nombre del director"
-                     #director="ngModel">
+              <select class="form-select" id="director" name="director" 
+                      [(ngModel)]="newMovie.fkDirector" required
+                      #director="ngModel">
+                <option value="">Selecciona un director</option>
+                <option *ngFor="let director of directores" [value]="director.id">
+                  {{ director.name }}
+                </option>
+              </select>
               <div *ngIf="director.invalid && director.touched" class="text-danger small mt-1">
                 El director es requerido
               </div>
@@ -141,7 +145,7 @@
                 <i class="fas fa-clock me-1"></i>
                 Duración (min) *
               </label>
-              <input type="number" class="form-control" id="duration" name="duration" 
+              <input type="string" class="form-control" id="duration" name="duration" 
                      [(ngModel)]="newMovie.duration" required min="1"
                      placeholder="120"
                      #duration="ngModel">
@@ -157,7 +161,7 @@
               Género *
             </label>
             <select class="form-select" id="genre" name="genre" 
-                    [(ngModel)]="newMovie.genre" required
+                    [(ngModel)]="newMovie.gender" required
                     #genre="ngModel">
               <option value="">Selecciona un género</option>
               <option value="Acción">Acción</option>
@@ -187,8 +191,8 @@
         <button type="button" class="btn" 
                 [ngClass]="isEditMode ? 'btn-warning' : 'btn-success'"
                 [disabled]="!movieForm.form.valid"
-                (click)="isEditMode ? updateMovie() : addMovie()">
-          <i class="fas" [ngClass]="isEditMode ? 'fa-save' : 'fa-plus'" class="me-1"></i>
+                (click)="isEditMode ? updateMovieApi() : addMovie()">
+          <i class="fas me-1" [ngClass]="isEditMode ? 'fa-save' : 'fa-plus'"></i>
           {{ isEditMode ? 'Actualizar' : 'Agregar' }} Película
         </button>
       </div>
