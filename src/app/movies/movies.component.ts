@@ -1,22 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ApiService } from '../api.service';
-
-interface Movie {
-  id: number;
-  name: string;
-  fkDirector: number; 
-  releaseYear: string | number;
-  gender: string;
-  duration: string | number;
-}
-
-interface Director {
-  id: number;
-  name: string;
-  nationality: string; 
-  ager: number;
-  active: string;
-}
+import { Movie, MovieCreateRequest, MovieUpdateRequest } from '../models/movie.model';
+import { Director } from '../models/director.model';
 
 @Component({
   selector: 'app-movies',
@@ -31,13 +16,12 @@ export class MoviesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadMovies();
-    this.loadDirectores(); // Cargar directores al iniciar el componente
+    this.loadDirectores();
   }
 
   loadMovies(): void {
     this.apiService.getData().subscribe(
       (response) => {
-        // Convertir duración de formato HH:MM:SS a minutos para mostrar en el formulario
         this.movies = response.map((movie: any) => ({
           ...movie,
           duration: typeof movie.duration === 'string' && movie.duration.includes(':') 
@@ -55,7 +39,7 @@ export class MoviesComponent implements OnInit {
    loadDirectores(): void {
     this.apiService.getDirectores().subscribe(
       (response) => {
-        this.directores = response; // Asignar la respuesta de la API al array movies
+        this.directores = response;
         console.log('Directores cargados:', this.directores);
       },
       (error) => {
@@ -64,11 +48,11 @@ export class MoviesComponent implements OnInit {
     );
   }
 
-  newMovie: Movie = {
+  newMovie: any = {
     id: 0,
     name: '',
     fkDirector: 0,
-    releaseYear: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD para input date
+    releaseYear: new Date().toISOString().split('T')[0],
     gender: '',
     duration: ''
   };
@@ -87,7 +71,7 @@ export class MoviesComponent implements OnInit {
       id: 0,
       name: '',
       fkDirector: 0,
-      releaseYear: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD para input date
+      releaseYear: new Date().toISOString().split('T')[0],
       gender: '',
       duration: ''
     };
@@ -95,84 +79,122 @@ export class MoviesComponent implements OnInit {
 
   addMovie() {
     if (this.isValidMovie(this.newMovie)) {
-      // Preparar los datos para enviar, convirtiendo duración a formato de tiempo
-      const movieData = {
-        name: this.newMovie.name,
-        fkDirector: Number(this.newMovie.fkDirector), // Convertir a número
+      // Asegurar que la duración siempre se convierta correctamente
+      let durationForAPI: string;
+      
+      if (typeof this.newMovie.duration === 'number') {
+        durationForAPI = this.convertMinutesToTime(this.newMovie.duration);
+        console.log(`🔄 Duración es número: ${this.newMovie.duration} min → ${durationForAPI}`);
+      } else if (typeof this.newMovie.duration === 'string' && this.newMovie.duration.includes(':')) {
+        durationForAPI = this.newMovie.duration;
+        console.log(`🔄 Duración ya es TimeSpan: ${durationForAPI}`);
+      } else if (typeof this.newMovie.duration === 'string' && !isNaN(Number(this.newMovie.duration))) {
+        // Si es string pero contiene un número
+        const minutes = Number(this.newMovie.duration);
+        durationForAPI = this.convertMinutesToTime(minutes);
+        console.log(`🔄 Duración es string numérico: "${this.newMovie.duration}" → ${minutes} min → ${durationForAPI}`);
+      } else {
+        durationForAPI = this.newMovie.duration.toString();
+        console.log(`🔄 Duración fallback: ${durationForAPI}`);
+      }
+
+      const movieData: MovieCreateRequest = {
+        name: this.newMovie.name.trim(),
+        fkDirector: Number(this.newMovie.fkDirector),
         releaseYear: new Date(this.newMovie.releaseYear.toString()).toISOString(),
-        gender: this.newMovie.gender,
-        duration: typeof this.newMovie.duration === 'number' 
-          ? this.convertMinutesToTime(this.newMovie.duration) 
-          : this.newMovie.duration
+        gender: this.newMovie.gender.trim(),
+        duration: durationForAPI
       };
 
-      console.log('Datos a enviar:', movieData);
-      console.log('Tipo de fkDirector:', typeof movieData.fkDirector);
-      console.log('Año original:', this.newMovie.releaseYear);
-      console.log('Año convertido (ISO):', movieData.releaseYear);
-      console.log('Duración original:', this.newMovie.duration);
-      console.log('Duración convertida:', movieData.duration);
+      console.log('=== CREANDO PELÍCULA ===');
+      console.log('Datos del formulario:', this.newMovie);
+      console.log('Tipo de duración en formulario:', typeof this.newMovie.duration);
+      console.log('Valor de duración en formulario:', this.newMovie.duration);
+      console.log('Duración convertida para API:', durationForAPI);
+      console.log('Datos a enviar a la API:', movieData);
 
       this.apiService.addMovie(movieData).subscribe({
         next: (response) => {
-          console.log('Película agregada exitosamente', response);
-          // Recargar la lista desde la API para incluir la nueva película
+          console.log('✅ Película agregada exitosamente', response);
           this.loadMovies();
           this.resetForm();
           this.closeModal();
         },
         error: (error) => {
-          console.error('Error al agregar la película', error);
+          console.error('❌ Error al agregar la película:', error);
           console.error('Status:', error.status);
-          console.error('Error message:', error.error);
-          alert(`Error al agregar la película: ${error.status} - ${error.message}`);
+          console.error('Error body:', error.error);
+          alert(`Error al agregar la película: ${error.status} - ${error.message || 'Error desconocido'}`);
         }
       });
     } else {
-      console.log('Validación falló:', {
-        isValid: this.isValidMovie(this.newMovie),
-        movieData: this.newMovie
-      });
       alert('Por favor, completa todos los campos requeridos.');
     }
   }
 
   editMovie(movie: Movie) {
-    this.newMovie = { ...movie };
+    // Preparar los datos para el formulario de edición
+    this.newMovie = {
+      id: movie.id,
+      name: movie.name,
+      fkDirector: movie.fkDirector,
+      // Convertir la fecha ISO a formato YYYY-MM-DD para el input date
+      releaseYear: movie.releaseYear ? new Date(movie.releaseYear).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      gender: movie.gender,
+      // Convertir duración de formato HH:MM:SS a minutos para el input
+      duration: typeof movie.duration === 'string' && movie.duration.includes(':') 
+        ? this.convertTimeToMinutes(movie.duration) 
+        : movie.duration
+    };
     this.editingMovie = movie;
     this.isEditMode = true;
+    
+    console.log('Editando película:', movie);
+    console.log('Datos preparados para formulario:', this.newMovie);
   }
 
   updateMovieApi() {
     if (this.isValidMovie(this.newMovie) && this.editingMovie) {
-      // Preparar los datos para enviar, convirtiendo duración a formato de tiempo
-      const movieData = {
-        name: this.newMovie.name,
-        fkDirector: Number(this.newMovie.fkDirector), // Convertir a número
+      // Asegurar que la duración siempre se convierta correctamente
+      let durationForAPI: string;
+      
+      if (typeof this.newMovie.duration === 'number') {
+        durationForAPI = this.convertMinutesToTime(this.newMovie.duration);
+        console.log(`🔄 Duración es número: ${this.newMovie.duration} min → ${durationForAPI}`);
+      } else if (typeof this.newMovie.duration === 'string' && this.newMovie.duration.includes(':')) {
+        durationForAPI = this.newMovie.duration;
+        console.log(`🔄 Duración ya es TimeSpan: ${durationForAPI}`);
+      } else if (typeof this.newMovie.duration === 'string' && !isNaN(Number(this.newMovie.duration))) {
+        // Si es string pero contiene un número
+        const minutes = Number(this.newMovie.duration);
+        durationForAPI = this.convertMinutesToTime(minutes);
+        console.log(`🔄 Duración es string numérico: "${this.newMovie.duration}" → ${minutes} min → ${durationForAPI}`);
+      } else {
+        durationForAPI = this.newMovie.duration.toString();
+        console.log(`🔄 Duración fallback: ${durationForAPI}`);
+      }
+
+      const movieData: MovieUpdateRequest = {
+        id: this.newMovie.id,
+        name: this.newMovie.name.trim(),
+        fkDirector: Number(this.newMovie.fkDirector),
         releaseYear: new Date(this.newMovie.releaseYear.toString()).toISOString(),
-        gender: this.newMovie.gender,
-        duration: typeof this.newMovie.duration === 'number' 
-          ? this.convertMinutesToTime(this.newMovie.duration) 
-          : this.newMovie.duration
+        gender: this.newMovie.gender.trim(),
+        duration: durationForAPI
       };
 
-      console.log('Datos a enviar:', movieData);
+      console.log('=== ACTUALIZANDO PELÍCULA ===');
       console.log('ID de la película:', this.newMovie.id);
-      console.log('Tipo de fkDirector:', typeof movieData.fkDirector);
-      console.log('Año original:', this.newMovie.releaseYear);
-      console.log('Año convertido (ISO):', movieData.releaseYear);
-      console.log('Duración original:', this.newMovie.duration);
-      console.log('Duración convertida:', movieData.duration);
+      console.log('Datos originales:', this.editingMovie);
+      console.log('Datos del formulario:', this.newMovie);
+      console.log('Tipo de duración en formulario:', typeof this.newMovie.duration);
+      console.log('Valor de duración en formulario:', this.newMovie.duration);
+      console.log('Duración convertida para API:', durationForAPI);
+      console.log('Datos a enviar a la API:', movieData);
 
       this.apiService.updateMovie(this.newMovie.id, movieData).subscribe({
         next: (response) => {
-          console.log('Película actualizada exitosamente', response);
-          // Actualizar la película en la lista local
-          const index = this.movies.findIndex(m => m.id === this.newMovie.id);
-          if (index !== -1) {
-            this.movies[index] = { ...this.newMovie };
-          }
-          // Recargar la lista desde la API para asegurar consistencia
+          console.log('✅ Película actualizada exitosamente', response);
           this.loadMovies();
           this.resetForm();
           this.closeModal();
@@ -180,11 +202,17 @@ export class MoviesComponent implements OnInit {
           this.editingMovie = null;
         },
         error: (error) => {
-          console.error('Error al actualizar la película', error);
-          alert('Error al actualizar la película. Por favor, intenta de nuevo.');
+          console.error('❌ Error al actualizar la película:', error);
+          console.error('Status:', error.status);
+          console.error('Error body:', error.error);
+          alert(`Error al actualizar la película: ${error.status} - ${error.message || 'Error desconocido'}`);
         }
       });
     } else {
+      console.log('❌ Validación falló');
+      console.log('Movie válida:', this.isValidMovie(this.newMovie));
+      console.log('Editing movie existe:', !!this.editingMovie);
+      console.log('Datos actuales:', this.newMovie);
       alert('Por favor, completa todos los campos requeridos.');
     }
   }
@@ -194,7 +222,6 @@ export class MoviesComponent implements OnInit {
       this.apiService.deleteMovie(id).subscribe(
         (response) => {
           console.log('Película eliminada exitosamente:', response);
-          // Recargar la lista de películas después de eliminar
           this.loadMovies();
         },
         (error) => {
@@ -204,31 +231,49 @@ export class MoviesComponent implements OnInit {
     }
   }
 
-  isValidMovie(movie: Movie): boolean {
+  isValidMovie(movie: any): boolean {
+    // Validar nombre
+    if (!movie.name || movie.name.trim() === '') {
+      console.log('❌ Nombre inválido:', movie.name);
+      return false;
+    }
+
+    // Validar director
+    const fkDirector = Number(movie.fkDirector);
+    if (!fkDirector || fkDirector <= 0) {
+      console.log('❌ Director inválido:', movie.fkDirector);
+      return false;
+    }
+
+    // Validar año
     const releaseYear = typeof movie.releaseYear === 'string' 
       ? new Date(movie.releaseYear).getFullYear() 
       : movie.releaseYear;
+    if (!releaseYear || releaseYear < 1800 || releaseYear > new Date().getFullYear() + 10) {
+      console.log('❌ Año inválido:', movie.releaseYear, releaseYear);
+      return false;
+    }
     
+    // Validar género
+    if (!movie.gender || movie.gender.trim() === '') {
+      console.log('❌ Género inválido:', movie.gender);
+      return false;
+    }
+
+    // Validar duración
     const duration = typeof movie.duration === 'string' 
       ? parseFloat(movie.duration) 
       : movie.duration;
+    if (!duration || duration <= 0) {
+      console.log('❌ Duración inválida:', movie.duration, duration);
+      return false;
+    }
 
-    const fkDirector = Number(movie.fkDirector);
-
-    return movie.name?.trim() !== '' &&
-      fkDirector > 0 &&
-      releaseYear > 1800 &&
-      movie.gender?.trim() !== '' &&
-      duration > 0;
-  }
-
-  getNextId(): number {
-    if (this.movies.length === 0) return 1;
-    return Math.max(...this.movies.map(m => m.id)) + 1;
+    console.log('✅ Validación de película exitosa');
+    return true;
   }
 
   closeModal() {
-    // Esta función cerrará el modal programáticamente
     const modalElement = document.getElementById('movieModal');
     if (modalElement) {
       const modal = (window as any).bootstrap.Modal.getInstance(modalElement);
@@ -243,20 +288,23 @@ export class MoviesComponent implements OnInit {
     return director ? director.name : 'Director no encontrado';
   }
 
-  // Función para convertir minutos a formato HH:MM:SS
   convertMinutesToTime(minutes: number): string {
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
-    const seconds = 0; // Asumimos 0 segundos
+    const seconds = 0; // Siempre 0 segundos como especificaste
     
-    return `${hours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    // Formato HH:MM:SS para TimeSpan de .NET
+    const timeString = `${hours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    console.log(`💫 Convirtiendo ${minutes} minutos a TimeSpan: ${timeString}`);
+    return timeString;
   }
 
-  // Función para convertir formato HH:MM:SS a minutos (para mostrar en el formulario)
   convertTimeToMinutes(timeString: string): number {
     const parts = timeString.split(':');
     const hours = parseInt(parts[0], 10) || 0;
     const minutes = parseInt(parts[1], 10) || 0;
-    return hours * 60 + minutes;
+    const totalMinutes = hours * 60 + minutes;
+    console.log(`💫 Convirtiendo TimeSpan ${timeString} a ${totalMinutes} minutos`);
+    return totalMinutes;
   }
 }

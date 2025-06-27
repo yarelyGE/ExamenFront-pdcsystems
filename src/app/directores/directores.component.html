@@ -1,1 +1,131 @@
-<p>directores works!</p>
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gestión de Directores</h2>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#directorModal" (click)="openModal()">
+          <i class="fas fa-plus"></i> Agregar Director
+        </button>
+      </div>
+
+      <!-- Tabla de directores -->
+      <div class="table-responsive">
+        <table class="table table-striped table-hover">
+          <thead class="table-dark">
+            <tr>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Nacionalidad</th>
+              <th>Edad</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let director of directores">
+              <td>{{ director.id }}</td>
+              <td>{{ director.name }}</td>
+              <td>{{ director.nationality }}</td>
+              <td>{{ director.ager }}</td>
+              <td>
+                <span class="badge" [ngClass]="director.active ? 'bg-success' : 'bg-danger'">
+                  {{ director.active ? 'Activo' : 'Inactivo' }}
+                </span>
+              </td>
+              <td>
+                <button class="btn btn-sm btn-warning me-2" data-bs-toggle="modal" data-bs-target="#directorModal" (click)="editDirector(director)">
+                  <i class="fas fa-edit"></i> Editar
+                </button>
+                <button class="btn btn-sm btn-danger" (click)="deleteDirector(director.id)">
+                  <i class="fas fa-trash"></i> Eliminar
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div *ngIf="directores.length === 0" class="text-center text-muted py-4">
+          <p>No hay directores registrados</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal para agregar/editar director -->
+<div class="modal fade" id="directorModal" tabindex="-1" aria-labelledby="directorModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="directorModalLabel">
+          {{ isEditMode ? 'Editar Director' : 'Agregar Director' }}
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form>
+          <div class="mb-3">
+            <label for="directorName" class="form-label">Nombre *</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="directorName" 
+              [(ngModel)]="newDirector.name" 
+              name="directorName"
+              placeholder="Ingrese el nombre del director"
+              required>
+          </div>
+          
+          <div class="mb-3">
+            <label for="directorNationality" class="form-label">Nacionalidad *</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              id="directorNationality" 
+              [(ngModel)]="newDirector.nationality" 
+              name="directorNationality"
+              placeholder="Ingrese la nacionalidad"
+              required>
+          </div>
+          
+          <div class="mb-3">
+            <label for="directorAge" class="form-label">Edad *</label>
+            <input 
+              type="number" 
+              class="form-control" 
+              id="directorAge" 
+              [(ngModel)]="newDirector.ager" 
+              name="directorAge"
+              placeholder="Ingrese la edad"
+              min="1"
+              max="120"
+              required>
+          </div>
+          
+          <div class="mb-3">
+            <div class="form-check">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="directorActive" 
+                [(ngModel)]="newDirector.active" 
+                name="directorActive">
+              <label class="form-check-label" for="directorActive">
+                Director activo
+              </label>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button 
+          type="button" 
+          class="btn btn-primary" 
+          (click)="isEditMode ? updateDirectorApi() : addDirector()">
+          {{ isEditMode ? 'Actualizar' : 'Agregar' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

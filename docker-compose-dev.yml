@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  # Servicio Angular Frontend
+  angular-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4200:4200"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    # Se conectará a tu API existente en localhost:5244
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  node_modules:
+
+# NOTA: La API ASP.NET Core debe estar corriendo en tu host en el puerto 5244
+# El frontend Angular se conectará a ella a través del proxy configurado
